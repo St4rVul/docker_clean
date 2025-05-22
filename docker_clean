@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Mostrar ayuda
+function show_help() {
+    echo "Uso: ./docker_clean [-i] [-c]"
+    echo "  -i    Eliminar solo las imágenes"
+    echo "  -c    Eliminar solo los contenedores"
+    echo "  -i -c Eliminar ambos (imágenes y contenedores)"
+}
+
+# Flags
+DELETE_IMAGES=false
+DELETE_CONTAINERS=false
+
+# Parsear argumentos
+while getopts ":ic" opt; do
+    case ${opt} in
+        i ) DELETE_IMAGES=true ;;
+        c ) DELETE_CONTAINERS=true ;;
+        * ) show_help
+            exit 1 ;;
+    esac
+done
+
+# Si no se pasan flags, eliminar todo
+if [ "$DELETE_IMAGES" = false ] && [ "$DELETE_CONTAINERS" = false ]; then
+    DELETE_IMAGES=true
+    DELETE_CONTAINERS=true
+fi
+
+# Eliminar contenedores si se solicita
+if [ "$DELETE_CONTAINERS" = true ]; then
+    echo "🗑️  Eliminando contenedores..."
+    CONTAINERS=$(docker ps -a -q)
+    if [ -n "$CONTAINERS" ]; then
+        docker rm $CONTAINERS --force
+    else
+        echo "No hay contenedores para eliminar."
+    fi
+fi
+
+# Eliminar imágenes si se solicita
+if [ "$DELETE_IMAGES" = true ]; then
+    echo "🗑️  Eliminando imágenes..."
+    IMAGES=$(docker images -q)
+    if [ -n "$IMAGES" ]; then
+        docker rmi $IMAGES --force
+    else
+        echo "No hay imágenes para eliminar."
+    fi
+fi
+
+echo "✅ Se ha eliminado todo correctamente (según la opción seleccionada)."
