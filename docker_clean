@@ -30,7 +30,7 @@ fi
 
 # Eliminar contenedores si se solicita
 if [ "$DELETE_CONTAINERS" = true ]; then
-    echo "🗑️  Eliminando contenedores..."
+    echo "[!]  Eliminando contenedores..."
     CONTAINERS=$(docker ps -a -q)
     if [ -n "$CONTAINERS" ]; then
         docker rm $CONTAINERS --force
@@ -41,7 +41,7 @@ fi
 
 # Eliminar imágenes si se solicita
 if [ "$DELETE_IMAGES" = true ]; then
-    echo "🗑️  Eliminando imágenes..."
+    echo "[!]  Eliminando imágenes..."
     IMAGES=$(docker images -q)
     if [ -n "$IMAGES" ]; then
         docker rmi $IMAGES --force
@@ -50,4 +50,4 @@ if [ "$DELETE_IMAGES" = true ]; then
     fi
 fi
 
-echo "✅ Se ha eliminado todo correctamente (según la opción seleccionada)."
+echo "[+] Se ha eliminado todo correctamente (según la opción seleccionada)."
