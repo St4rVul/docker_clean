@@ -1,53 +1,105 @@
 #!/bin/bash
 
-# Mostrar ayuda
-function show_help() {
-    echo "Uso: ./docker_clean [-i] [-c]"
-    echo "  -i    Eliminar solo las imágenes"
-    echo "  -c    Eliminar solo los contenedores"
-    echo "  -i -c Eliminar ambos (imágenes y contenedores)"
+# Colores para una terminal elegante
+VERDE='\033[0;32m'
+ROJO='\033[0;31m'
+AMARILLO='\033[1;33m'
+AZUL='\033[0;34m'
+NC='\033[0m' # Sin color
+
+# Función para limpiar absolutamente todo
+limpiar_todo() {
+    echo -e "\n${ROJO}[!] Iniciando limpieza total del sistema Docker...${NC}"
+    
+    echo -e "${AMARILLO}[*] Deteniendo todos los contenedores activos...${NC}"
+    docker stop $(docker ps -aq) 2>/dev/null
+
+    echo -e "${AMARILLO}[*] Eliminando todos los contenedores...${NC}"
+    docker rm $(docker ps -aq) 2>/dev/null
+
+    echo -e "${AMARILLO}[*] Eliminando todas las imágenes...${NC}"
+    docker rmi $(docker images -aq) 2>/dev/null
+
+    echo -e "${AMARILLO}[*] Eliminando volúmenes no utilizados...${NC}"
+    docker volume prune -f 2>/dev/null
+
+    echo -e "${AMARILLO}[*] Eliminando redes no utilizadas...${NC}"
+    docker network prune -f 2>/dev/null
+
+    echo -e "${AMARILLO}[*] Ejecutando limpieza profunda del sistema (prune)...${NC}"
+    docker system prune -a --volumes -f 2>/dev/null
+
+    echo -e "${VERDE}[✓] ¡Sistema Docker completamente limpio!${NC}\n"
 }
 
-# Flags
-DELETE_IMAGES=false
-DELETE_CONTAINERS=false
+# Función para el menú interactivo (si se desea borrado selectivo)
+mostrar_menu_selectivo() {
+    while true; do
+        echo -e "${AZUL}=========================================${NC}"
+        echo -e "${AZUL}       MENÚ DE LIMPIEZA SELECTIVA        ${NC}"
+        echo -e "${AZUL}=========================================${NC}"
+        echo -e "1) Detener y eliminar todos los contenedores"
+        echo -e "2) Eliminar todas las imágenes"
+        echo -e "3) Eliminar volúmenes huérfanos"
+        echo -e "4) Eliminar redes no usadas"
+        echo -e "5) Limpieza total (Todo lo anterior)"
+        echo -e "6) Salir"
+        echo -e "${AZUL}-----------------------------------------${NC}"
+        read -p "Selecciona una opción [1-6]: " opcion
 
-# Parsear argumentos
-while getopts ":ic" opt; do
-    case ${opt} in
-        i ) DELETE_IMAGES=true ;;
-        c ) DELETE_CONTAINERS=true ;;
-        * ) show_help
-            exit 1 ;;
-    esac
-done
+        case $opcion in
+            1)
+                echo -e "${AMARILLO}[*] Limpiando contenedores...${NC}"
+                docker stop $(docker ps -aq) 2>/dev/null
+                docker rm $(docker ps -aq) 2>/dev/null
+                echo -e "${VERDE}[✓] Contenedores eliminados.${NC}\n"
+                ;;
+            2)
+                echo -e "${AMARILLO}[*] Limpiando imágenes...${NC}"
+                docker rmi $(docker images -aq) 2>/dev/null
+                echo -e "${VERDE}[✓] Imágenes eliminadas.${NC}\n"
+                ;;
+            3)
+                docker volume prune -f
+                ;;
+            4)
+                docker network prune -f
+                ;;
+            5)
+                limpiar_todo
+                break
+                ;;
+            6)
+                echo -e "${VERDE}Saliendo sin realizar más cambios.${NC}"
+                break
+                ;;
+            *)
+                echo -e "${ROJO}Opción no válida.${NC}\n"
+                ;;
+        esac
+    done
+}
 
-# Si no se pasan flags, eliminar todo
-if [ "$DELETE_IMAGES" = false ] && [ "$DELETE_CONTAINERS" = false ]; then
-    DELETE_IMAGES=true
-    DELETE_CONTAINERS=true
+# --- FLUJO PRINCIPAL ---
+
+# Validación: Verificar si el demonio de Docker está corriendo
+if ! docker ps >/dev/null 2>&1; then
+    echo -e "${ROJO}[X] Error: Docker no está corriendo o no tienes permisos (¿olvidaste el socket/sudo?).${NC}"
+    exit 1
 fi
 
-# Eliminar contenedores si se solicita
-if [ "$DELETE_CONTAINERS" = true ]; then
-    echo "[!]  Eliminando contenedores..."
-    CONTAINERS=$(docker ps -a -q)
-    if [ -n "$CONTAINERS" ]; then
-        docker rm $CONTAINERS --force
-    else
-        echo "No hay contenedores para eliminar."
-    fi
-fi
+# Pregunta inicial de seguridad para la acción por defecto (Borrar Todo)
+echo -e "${AMARILLO}¿Deseas ejecutar una limpieza TOTAL automática? (Contenedores, imágenes, volúmenes y redes)${NC}"
+read -p "(S/n): " confirmar
 
-# Eliminar imágenes si se solicita
-if [ "$DELETE_IMAGES" = true ]; then
-    echo "[!]  Eliminando imágenes..."
-    IMAGES=$(docker images -q)
-    if [ -n "$IMAGES" ]; then
-        docker rmi $IMAGES --force
-    else
-        echo "No hay imágenes para eliminar."
-    fi
-fi
+# Convertir respuesta a minúsculas
+confirmar=$(echo "$confirmar" | tr '[:upper:]' '[:lower:]')
 
-echo "[+] Se ha eliminado todo correctamente (según la opción seleccionada)."
+if [[ "$confirmar" == "s" || "$confirmar" == "" ]]; then
+    # Acción por defecto si presiona Enter o escribe 'S'
+    limpiar_todo
+else
+    # Si dice que 'No' u otra tecla, abre el menú selectivo
+    echo -e "\n${AZUL}[*] Entrando al modo de selección manual...${NC}"
+    mostrar_menu_selectivo
+fi
